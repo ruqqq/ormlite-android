@@ -1,0 +1,214 @@
+Subject: [PATCH] Patch ORMLite to use SQLCipher
+
+This patch changes the SQLite backend of ORMLite from Android's default
+SQLite database to the SQLCipher database backend. When creating your
+OrmLiteSqliteOpenHelper you need to supply an additional `password`
+parameter, which will be passed to SQLCipher.
+
+WARNING: The password will be stored unencrypted in the memory of
+the OrmLiteSqliteOpenHelper and AndroidConnectionSource objects!
+
+This patch depends on SQLCipher for Android:
+
+    wget https://github.com/downloads/sqlcipher/android-database-sqlcipher/SQLCipher%20for%20Android%202.1.1.zip
+    unzip "SQLCipher for Android 2.1.1.zip" "SQLCipher for Android 2.1.1/libs/sqlcipher.jar"
+    mvn install:install-file -DgroupId=net.sqlcipher.database -DartifactId=android-database-sqlcipher -Dversion=2.1.1 -Dpackaging=jar -Dfile="SQLCipher for Android 2.1.1/libs/sqlcipher.jar"
+---
+ pom.xml                                            |    5 ++++
+ .../ormlite/android/AndroidCompiledStatement.java  |    4 ++--
+ .../ormlite/android/AndroidConnectionSource.java   |   13 +++++++----
+ .../ormlite/android/AndroidDatabaseConnection.java |    4 ++--
+ .../android/apptools/OpenHelperManager.java        |    2 +-
+ .../android/apptools/OrmLiteConfigUtil.java        |    2 +-
+ .../android/apptools/OrmLiteSqliteOpenHelper.java  |   24 ++++++++++++--------
+ 7 files changed, 33 insertions(+), 21 deletions(-)
+
+diff --git a/pom.xml b/pom.xml
+index 81fc9e7..7de629c 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -230,6 +230,11 @@
+ 			<version>${ormlite-version}</version>
+ 		</dependency>
+ 		<dependency>
++			<groupId>net.sqlcipher.database</groupId>
++			<artifactId>android-database-sqlcipher</artifactId>
++			<version>2.1.1</version>
++		</dependency>
++		<dependency>
+ 			<groupId>com.google.android</groupId>
+ 			<artifactId>android</artifactId>
+ 			<scope>provided</scope>
+diff --git a/src/main/java/com/j256/ormlite/android/AndroidCompiledStatement.java b/src/main/java/com/j256/ormlite/android/AndroidCompiledStatement.java
+index 5e6b9f0..f8e18a2 100644
+--- a/src/main/java/com/j256/ormlite/android/AndroidCompiledStatement.java
++++ b/src/main/java/com/j256/ormlite/android/AndroidCompiledStatement.java
+@@ -5,8 +5,8 @@ import java.util.ArrayList;
+ import java.util.List;
+ 
+ import android.database.Cursor;
+-import android.database.sqlite.SQLiteDatabase;
+-import android.database.sqlite.SQLiteStatement;
++import net.sqlcipher.database.SQLiteDatabase;
++import net.sqlcipher.database.SQLiteStatement;
+ 
+ import com.j256.ormlite.dao.ObjectCache;
+ import com.j256.ormlite.field.SqlType;
+diff --git a/src/main/java/com/j256/ormlite/android/AndroidConnectionSource.java b/src/main/java/com/j256/ormlite/android/AndroidConnectionSource.java
+index 7036256..59de929 100644
+--- a/src/main/java/com/j256/ormlite/android/AndroidConnectionSource.java
++++ b/src/main/java/com/j256/ormlite/android/AndroidConnectionSource.java
+@@ -2,8 +2,8 @@ package com.j256.ormlite.android;
+ 
+ import java.sql.SQLException;
+ 
+-import android.database.sqlite.SQLiteDatabase;
+-import android.database.sqlite.SQLiteOpenHelper;
++import net.sqlcipher.database.SQLiteDatabase;
++import net.sqlcipher.database.SQLiteOpenHelper;
+ 
+ import com.j256.ormlite.android.apptools.OrmLiteSqliteOpenHelper;
+ import com.j256.ormlite.db.DatabaseType;
+@@ -28,17 +28,20 @@ public class AndroidConnectionSource extends BaseConnectionSource implements Con
+ 	private final SQLiteOpenHelper helper;
+ 	private final SQLiteDatabase sqliteDatabase;
+ 	private AndroidDatabaseConnection connection = null;
++	private String password = null;
+ 	private volatile boolean isOpen = true;
+ 	private final DatabaseType databaseType = new SqliteAndroidDatabaseType();
+ 
+-	public AndroidConnectionSource(SQLiteOpenHelper helper) {
++	public AndroidConnectionSource(SQLiteOpenHelper helper, String password) {
+ 		this.helper = helper;
+ 		this.sqliteDatabase = null;
++		this.password = password;
+ 	}
+ 
+-	public AndroidConnectionSource(SQLiteDatabase sqliteDatabase) {
++	public AndroidConnectionSource(SQLiteDatabase sqliteDatabase, String password) {
+ 		this.helper = null;
+ 		this.sqliteDatabase = sqliteDatabase;
++		this.password = password;
+ 	}
+ 
+ 	public DatabaseConnection getReadOnlyConnection() throws SQLException {
+@@ -60,7 +63,7 @@ public class AndroidConnectionSource extends BaseConnectionSource implements Con
+ 			SQLiteDatabase db;
+ 			if (sqliteDatabase == null) {
+ 				try {
+-					db = helper.getWritableDatabase();
++					db = helper.getWritableDatabase(password);
+ 				} catch (android.database.SQLException e) {
+ 					throw SqlExceptionUtil.create("Getting a writable database from helper " + helper + " failed", e);
+ 				}
+diff --git a/src/main/java/com/j256/ormlite/android/AndroidDatabaseConnection.java b/src/main/java/com/j256/ormlite/android/AndroidDatabaseConnection.java
+index b2fbc7b..e4ce40b 100644
+--- a/src/main/java/com/j256/ormlite/android/AndroidDatabaseConnection.java
++++ b/src/main/java/com/j256/ormlite/android/AndroidDatabaseConnection.java
+@@ -4,8 +4,8 @@ import java.sql.SQLException;
+ import java.sql.Savepoint;
+ 
+ import android.database.Cursor;
+-import android.database.sqlite.SQLiteDatabase;
+-import android.database.sqlite.SQLiteStatement;
++import net.sqlcipher.database.SQLiteDatabase;
++import net.sqlcipher.database.SQLiteStatement;
+ 
+ import com.j256.ormlite.dao.ObjectCache;
+ import com.j256.ormlite.field.FieldType;
+diff --git a/src/main/java/com/j256/ormlite/android/apptools/OpenHelperManager.java b/src/main/java/com/j256/ormlite/android/apptools/OpenHelperManager.java
+index 75a1817..27d88d2 100644
+--- a/src/main/java/com/j256/ormlite/android/apptools/OpenHelperManager.java
++++ b/src/main/java/com/j256/ormlite/android/apptools/OpenHelperManager.java
+@@ -6,7 +6,7 @@ import java.lang.reflect.Type;
+ 
+ import android.content.Context;
+ import android.content.res.Resources;
+-import android.database.sqlite.SQLiteOpenHelper;
++import net.sqlcipher.database.SQLiteOpenHelper;
+ 
+ import com.j256.ormlite.dao.BaseDaoImpl;
+ import com.j256.ormlite.dao.DaoManager;
+diff --git a/src/main/java/com/j256/ormlite/android/apptools/OrmLiteConfigUtil.java b/src/main/java/com/j256/ormlite/android/apptools/OrmLiteConfigUtil.java
+index 9ca967f..d922fd7 100644
+--- a/src/main/java/com/j256/ormlite/android/apptools/OrmLiteConfigUtil.java
++++ b/src/main/java/com/j256/ormlite/android/apptools/OrmLiteConfigUtil.java
+@@ -41,7 +41,7 @@ import com.j256.ormlite.table.DatabaseTableConfigLoader;
+  * I added this utility class which writes a configuration file into the raw resource "res/raw" directory inside of your
+  * project containing the table and field names and associated details. This file can then be loaded into the
+  * {@link DaoManager} with the help of the
+- * {@link OrmLiteSqliteOpenHelper#OrmLiteSqliteOpenHelper(android.content.Context, String, android.database.sqlite.SQLiteDatabase.CursorFactory, int, int)}
++ * {@link OrmLiteSqliteOpenHelper#OrmLiteSqliteOpenHelper(android.content.Context, String, net.sqlcipher.database.SQLiteDatabase.CursorFactory, int, int)}
+  * constructor. This means that you can configure your classes _without_ any runtime calls to annotations. It seems
+  * significantly faster.
+  * <p>
+diff --git a/src/main/java/com/j256/ormlite/android/apptools/OrmLiteSqliteOpenHelper.java b/src/main/java/com/j256/ormlite/android/apptools/OrmLiteSqliteOpenHelper.java
+index 3e9cbeb..86c8378 100644
+--- a/src/main/java/com/j256/ormlite/android/apptools/OrmLiteSqliteOpenHelper.java
++++ b/src/main/java/com/j256/ormlite/android/apptools/OrmLiteSqliteOpenHelper.java
+@@ -10,9 +10,9 @@ import java.io.InputStreamReader;
+ import java.sql.SQLException;
+ 
+ import android.content.Context;
+-import android.database.sqlite.SQLiteDatabase;
+-import android.database.sqlite.SQLiteDatabase.CursorFactory;
+-import android.database.sqlite.SQLiteOpenHelper;
++import net.sqlcipher.database.SQLiteDatabase;
++import net.sqlcipher.database.SQLiteDatabase.CursorFactory;
++import net.sqlcipher.database.SQLiteOpenHelper;
+ 
+ import com.j256.ormlite.android.AndroidConnectionSource;
+ import com.j256.ormlite.android.AndroidDatabaseConnection;
+@@ -34,11 +34,13 @@ import com.j256.ormlite.table.DatabaseTableConfigLoader;
+ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
+ 
+ 	protected static Logger logger = LoggerFactory.getLogger(OrmLiteSqliteOpenHelper.class);
+-	protected AndroidConnectionSource connectionSource = new AndroidConnectionSource(this);
++	protected AndroidConnectionSource connectionSource;
+ 	private volatile boolean isOpen = true;
+ 
+-	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion) {
++	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion, String password) {
+ 		super(context, databaseName, factory, databaseVersion);
++		SQLiteDatabase.loadLibs(context);
++		connectionSource = new AndroidConnectionSource(this, password);
+ 		logger.trace("{}: constructed connectionSource {}", this, connectionSource);
+ 	}
+ 
+@@ -50,8 +52,8 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
+ 	 *            file-id which probably should be a R.raw.ormlite_config.txt or some static value.
+ 	 */
+ 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
+-			int configFileId) {
+-		this(context, databaseName, factory, databaseVersion, openFileId(context, configFileId));
++			int configFileId, String password) {
++		this(context, databaseName, factory, databaseVersion, openFileId(context, configFileId), password);
+ 	}
+ 
+ 	/**
+@@ -61,8 +63,8 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
+ 	 *            Configuration file to be loaded.
+ 	 */
+ 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
+-			File configFile) {
+-		this(context, databaseName, factory, databaseVersion, openFile(configFile));
++			File configFile, String password) {
++		this(context, databaseName, factory, databaseVersion, openFile(configFile), password);
+ 	}
+ 
+ 	/**
+@@ -73,8 +75,10 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
+ 	 *            Stream opened to the configuration file to be loaded.
+ 	 */
+ 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
+-			InputStream stream) {
++			InputStream stream, String password) {
+ 		super(context, databaseName, factory, databaseVersion);
++		SQLiteDatabase.loadLibs(context);
++		connectionSource = new AndroidConnectionSource(this, password);
+ 		if (stream == null) {
+ 			return;
+ 		}
+-- 
+1.7.10.4
+

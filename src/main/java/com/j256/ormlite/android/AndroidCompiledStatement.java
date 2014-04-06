@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteStatement;
+import net.sqlcipher.database.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteStatement;
 
 import com.j256.ormlite.android.compat.ApiCompatibility;
 import com.j256.ormlite.android.compat.ApiCompatibility.CancellationHook;

@@ -41,7 +41,7 @@ import com.j256.ormlite.table.DatabaseTableConfigLoader;
  * I added this utility class which writes a configuration file into the raw resource "res/raw" directory inside of your
  * project containing the table and field names and associated details. This file can then be loaded into the
  * {@link DaoManager} with the help of the
- * {@link OrmLiteSqliteOpenHelper#OrmLiteSqliteOpenHelper(android.content.Context, String, android.database.sqlite.SQLiteDatabase.CursorFactory, int, int)}
+ * {@link OrmLiteSqliteOpenHelper#OrmLiteSqliteOpenHelper(android.content.Context, String, net.sqlcipher.database.SQLiteDatabase.CursorFactory, int, int)}
  * constructor. This means that you can configure your classes _without_ any runtime calls to annotations. It seems
  * significantly faster.
  * <p>

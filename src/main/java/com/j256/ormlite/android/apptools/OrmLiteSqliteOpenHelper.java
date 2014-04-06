@@ -10,9 +10,9 @@ import java.io.InputStreamReader;
 import java.sql.SQLException;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteDatabase.CursorFactory;
-import android.database.sqlite.SQLiteOpenHelper;
+import net.sqlcipher.database.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase.CursorFactory;
+import net.sqlcipher.database.SQLiteOpenHelper;
 
 import com.j256.ormlite.android.AndroidConnectionSource;
 import com.j256.ormlite.android.AndroidDatabaseConnection;
@@ -34,7 +34,7 @@ import com.j256.ormlite.table.DatabaseTableConfigLoader;
 public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
 
 	protected static Logger logger = LoggerFactory.getLogger(OrmLiteSqliteOpenHelper.class);
-	protected AndroidConnectionSource connectionSource = new AndroidConnectionSource(this);
+	protected AndroidConnectionSource connectionSource;
 
 	protected boolean cancelQueriesEnabled;
 	private volatile boolean isOpen = true;
@@ -50,8 +50,10 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
 	 *            Version of the database we are opening. This causes {@link #onUpgrade(SQLiteDatabase, int, int)} to be
 	 *            called if the stored database is a different version.
 	 */
-	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion) {
+	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion, String password) {
 		super(context, databaseName, factory, databaseVersion);
+		SQLiteDatabase.loadLibs(context);
+		connectionSource = new AndroidConnectionSource(this, password);
 		logger.trace("{}: constructed connectionSource {}", this, connectionSource);
 	}
 
@@ -72,8 +74,8 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
 	 *            file-id which probably should be a R.raw.ormlite_config.txt or some static value.
 	 */
 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
-			int configFileId) {
-		this(context, databaseName, factory, databaseVersion, openFileId(context, configFileId));
+			int configFileId, String password) {
+		this(context, databaseName, factory, databaseVersion, openFileId(context, configFileId), password);
 	}
 
 	/**
@@ -92,8 +94,8 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
 	 *            Configuration file to be loaded.
 	 */
 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
-			File configFile) {
-		this(context, databaseName, factory, databaseVersion, openFile(configFile));
+			File configFile, String password) {
+		this(context, databaseName, factory, databaseVersion, openFile(configFile), password);
 	}
 
 	/**
@@ -113,8 +115,10 @@ public abstract class OrmLiteSqliteOpenHelper extends SQLiteOpenHelper {
 	 *            Stream opened to the configuration file to be loaded.
 	 */
 	public OrmLiteSqliteOpenHelper(Context context, String databaseName, CursorFactory factory, int databaseVersion,
-			InputStream stream) {
+			InputStream stream, String password) {
 		super(context, databaseName, factory, databaseVersion);
+		SQLiteDatabase.loadLibs(context);
+		connectionSource = new AndroidConnectionSource(this, password);
 		if (stream == null) {
 			return;
 		}
