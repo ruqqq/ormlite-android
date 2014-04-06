@@ -19,7 +19,6 @@ import com.j256.ormlite.support.ConnectionSource;
  * 
  * @author graywatson, kevingalligan
  */
-@SuppressWarnings("deprecation")
 public abstract class OrmLiteBaseActivityGroup<H extends OrmLiteSqliteOpenHelper> extends ActivityGroup {
 
 	private volatile H helper;
@@ -78,7 +77,7 @@ public abstract class OrmLiteBaseActivityGroup<H extends OrmLiteSqliteOpenHelper
 	 * </p>
 	 */
 	protected H getHelperInternal(Context context) {
-		@SuppressWarnings({ "unchecked" })
+		@SuppressWarnings({ "unchecked", "deprecation" })
 		H newHelper = (H) OpenHelperManager.getHelper(context);
 		return newHelper;
 	}

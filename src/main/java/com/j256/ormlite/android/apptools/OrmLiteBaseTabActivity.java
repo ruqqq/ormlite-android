@@ -13,7 +13,6 @@ import com.j256.ormlite.support.ConnectionSource;
  * 
  * @author graywatson, kevingalligan
  */
-@SuppressWarnings("deprecation")
 public abstract class OrmLiteBaseTabActivity<H extends OrmLiteSqliteOpenHelper> extends TabActivity {
 
 	private volatile H helper;
@@ -74,7 +73,7 @@ public abstract class OrmLiteBaseTabActivity<H extends OrmLiteSqliteOpenHelper> 
 	 * @see OpenHelperManager#getHelper(Context)
 	 */
 	protected H getHelperInternal(Context context) {
-		@SuppressWarnings({ "unchecked" })
+		@SuppressWarnings({ "unchecked", "deprecation" })
 		H newHelper = (H) OpenHelperManager.getHelper(context);
 		return newHelper;
 	}
