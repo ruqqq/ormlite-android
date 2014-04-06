@@ -36,11 +36,7 @@ public class ApiCompatibilityUtils {
 	private static final int JELLY_BEAN_MR2 = 18;
 
 	static {
-		if (Build.VERSION.SDK_INT >= JELLY_BEAN) {
-			compatibility = new JellyBeanApiCompatibility();
-		} else {
-			compatibility = new BasicApiCompatibility();
-		}
+		compatibility = new BasicApiCompatibility();
 	}
 
 	/**
