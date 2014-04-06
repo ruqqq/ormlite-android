@@ -323,7 +323,7 @@ public class OrmLiteConfigUtil {
 	 */
 	private static File findResRawDir(File dir) {
 		for (File file : dir.listFiles()) {
-			if (file.getName().equals(RESOURCE_DIR_NAME) && file.isDirectory()) {
+            if (file.getName().equals(RESOURCE_DIR_NAME) && file.isDirectory()) {
 				File[] rawFiles = file.listFiles(new FileFilter() {
 					public boolean accept(File file) {
 						return file.getName().equals(RAW_DIR_NAME) && file.isDirectory();
@@ -332,7 +332,11 @@ public class OrmLiteConfigUtil {
 				if (rawFiles.length == 1) {
 					return rawFiles[0];
 				}
-			}
+			} else if (file.isDirectory()) {
+                File subdir = findResRawDir(file);
+                if (subdir != null)
+                    return subdir;
+            }
 		}
 		return null;
 	}
